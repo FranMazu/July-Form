@@ -4,42 +4,34 @@ const nodemailer = require("nodemailer");
 const multer = require("multer");
 const path = require("path");
 
-// Inicializar express
-const app = express(); // Asegúrate de que esto esté bien definido
-const PORT = 3000;
+const app = express();
+const PORT = process.env.PORT || 3000; // Puerto dinámico para Heroku
 
-// Configurar almacenamiento con multer
+// Configuración de multer para subir archivos
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads"); // Carpeta donde se guardarán los archivos
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname); // Nombre único para cada archivo
-  },
+  destination: (req, file, cb) => cb(null, "uploads"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
+const upload = multer({ storage });
 
-const upload = multer({ storage: storage });
-
-// Middleware para procesar datos del formulario
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(express.static("public")); // Carpeta para HTML, CSS y JS estáticos
 
-// Servir archivos estáticos (HTML y CSS)
-app.use(express.static("public"));
-
-// Ruta para manejar el envío del formulario
+// Ruta para manejar el formulario
 app.post(
   "/send",
   upload.fields([
-    { name: "archivo", maxCount: 1 }, // Para el primer archivo
-    { name: "foto", maxCount: 1 },    // Para el segundo archivo (foto)
+    { name: "archivo", maxCount: 1 }, // Primer archivo
+    { name: "foto", maxCount: 1 },    // Segundo archivo
   ]),
   async (req, res) => {
-    const { nombre, email, cuit, telefono, opciones } = req.body; // Incluimos 'telefono'
+    const { nombre, email, cuit, telefono, opciones } = req.body;
     const archivo = req.files.archivo ? req.files.archivo[0] : null;
     const foto = req.files.foto ? req.files.foto[0] : null;
 
-    // Configurar el transportador de Nodemailer
+    // Configuración de Nodemailer
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -48,38 +40,28 @@ app.post(
       },
     });
 
-    // Configurar el contenido del correo
     const mailOptions = {
       from: email,
-      to: "subzerov39@gmail.com",
+      to: "TU_EMAIL@gmail.com", // Cambia esto por el correo receptor
       subject: `Formulario enviado por ${nombre}`,
-      text: `Nombre completo: ${nombre}
-Correo electrónico: ${email}
-CUIT: ${cuit}
-Teléfono: ${telefono}
-Opción seleccionada: ${opciones}`,
+      text: `Nombre: ${nombre}\nCorreo: ${email}\nCUIT: ${cuit}\nTeléfono: ${telefono}\nOpción: ${opciones}`,
       attachments: [
-        {
-          filename: archivo ? archivo.originalname : "",
-          path: archivo ? archivo.path : "",
-        },
-        {
-          filename: foto ? foto.originalname : "",
-          path: foto ? foto.path : "",
-        },
+        ...(archivo ? [{ filename: archivo.originalname, path: archivo.path }] : []),
+        ...(foto ? [{ filename: foto.originalname, path: foto.path }] : []),
       ],
     };
 
     try {
       await transporter.sendMail(mailOptions);
-      res.status(200).send("Correo enviado correctamente");
+      res.status(200).send("Correo enviado correctamente.");
     } catch (error) {
-      console.error("Error enviando el correo: ", error);
-      res.status(500).send("Error enviando el correo");
+      console.error("Error enviando correo:", error);
+      res.status(500).send("Error enviando el correo.");
     }
   }
 );
-// Iniciar el servidor
+
+// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
